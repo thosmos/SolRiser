@@ -47,6 +47,7 @@ class PhysicalDevice(object):
 
     def set_intensity(self, intensity):
         # TODO note this setter may be superfluos
+        print "device.set_intensity"
         self.intensity = intensity
 
     def update_data(self, data):
@@ -143,6 +144,7 @@ class BaseLightElement(object):
         self.effects = []
         self.pre_update_effects = []
         self._intensity = 0
+        self.changed = False
 
     def bell_reset(self):
         # TODO is this method still needed?
@@ -192,14 +194,17 @@ class BaseLightElement(object):
         for effect in self.effects:
             effect.update(show, [self])
         self.device.set_intensity(self.intensity)
-        # print 'intensity: ', self.name, self.intensity
+        #print 'intensity: ', self.name, self.intensity
         return self.intensity
 
     def set_intensity(self, intensity):
         # mostly to be overridden by subclasses
+#        print "BaseLightElement.set_intensity", intensity
         self._intensity = intensity
         if hasattr(self, 'device'):
+#            print "BaseLightElement.set_intensity(self.device.intensity)"
             self.device.intensity = intensity
+        self.changed = True
 
     def get_intensity(self):
         return self._intensity
@@ -218,6 +223,7 @@ class BaseLightElement(object):
     def trigger(self, intensity, **kwargs):
         # @@ need toggle mode implementation here
         if self.simple:
+#            print "BaseLightElement triggered"
             self.set_intensity(intensity)
             return
         if intensity > 0 and self.trigger_state == 0:
@@ -274,13 +280,16 @@ class RGBLight(LightElement):
         self._hue = 0.0
         self._saturation = 0
         self.normalize = False
+        #self.changed = False
 
     def update(self, show):
         # print 'update'
         return_value = super(RGBLight, self).update(show)
         # TODO - this funciton needed when tweening hue - but can't be used
         # tweening RGB directly
-        self.update_rgb()
+        if self.changed:
+            self.update_rgb()
+            self.changed = False
         return return_value
 
     def update_rgb(self):
@@ -307,32 +316,45 @@ class RGBLight(LightElement):
     #
 
     def _get_hue(self):
-        print 'getting hue:', hue
+        #print 'getting hue:', hue
         # TODO need to update with function in case r,g,b were updated other
         # than through hue
         return self._hue
 
     def _set_hue(self, hue):
-        print 'setting hue:', hue
+        #print 'setting hue:', hue
         self._hue = hue
+        self.changed = True
 
     def _get_saturation(self):
-        print 'getting saturation:', saturation
+        #print 'getting saturation:', saturation
         return self._saturation
 
     def _set_saturation(self, saturation):
-        print 'setting saturation:', saturation
+        #print 'setting saturation:', saturation
         self._saturation = saturation
         # TODO concept of intensity should be converted to raw RGB for base RGB
         # light no assumption of 4th channel
+        self.changed = True
 
+#    def _get_intensity(self):
+#        #print 'getting saturation:', saturation
+#        return self.intensity
+#
+#    def _set_intensity(self, intensity):
+#        #print 'setting saturation:', saturation
+#        self.intensity = intensity
+#        # TODO concept of intensity should be converted to raw RGB for base RGB
+#        # light no assumption of 4th channel
+#        self.changed = True
+        
     # @@ need to address the attribute of intensity in the context of RGB
     def update_hue(self):
         """
         updates hue property from RGB values, RGB is always updated when hue
         changed
         """
-        print 'update_hue'
+        #print 'update_hue'
         adjusted_rgb = [x * self.intensity for x in [
             self.red, self.green, self.blue]]
         h, s, v = colorsys.rgb_to_hsv(*tuple(adjusted_rgb))
@@ -341,6 +363,7 @@ class RGBLight(LightElement):
 
     hue = property(_get_hue, _set_hue)
     saturation = property(_get_saturation, _set_saturation)
+#    intensity = property(_get_intensity, _set_intensity)
 
 
 class LightGroup(BaseLightElement):
@@ -929,6 +952,46 @@ class LightShow(object):
             if speed and count > 1 and i < (count - 1):
                 time.sleep((1 / speed) * self.frame_delay)
 
+    def runit(self):
+        self.init_show()
+        self.show_start = time.time()
+        self.timecode = 0
+        while self.running:
+            pre_update = time.time()
+            timecode = pre_update - self.show_start
+            self.time_delta = timecode - self.timecode
+            self.timecode = timecode
+            self.update()
+            post_update = time.time()
+            # how long did this update actually take
+            effective_frame = post_update - pre_update
+            effective_framerate = self.frame_average(effective_frame)
+            discrepancy = effective_framerate - self.frame_delay
+            if discrepancy > .01:
+                self.frame_delay += .01
+                if discrepancy > .3:
+                    print "Slow refresh"
+            elif discrepancy < -.01 and self.frame_delay > 1 / self.frame_rate:
+                # we can speed back up
+                self.frame_delay -= .01
+            self.frame += 1
+            remainder = self.frame_delay - effective_frame
+            if remainder > 0:
+                # we finished early, wait to send the data
+                # TODO this wait could/should happen in another thread that
+                # handles the data sending - but currently sending the data
+                # is fast enough that this can be investigated later
+                time.sleep(remainder)
+            # pre_send = time.time()
+            for n in self.networks:
+                n.send_data()
+            if self.frame == 40:
+                # print [e.channels for e in self.networks[1].elements]
+                print('framerate: ', 1 / self.frame_delay, " Remainder: ",
+                        remainder)
+                self.frame = 0            
+            
+        
     def run_live(self):
         self.init_show()
         self.show_start = time.time()

@@ -1,19 +1,64 @@
 import sys
 import random
+import config
+import time
 
 from birdfish.input.osc import OSCDispatcher
-from birdfish.effects import Blink, Pulser
+from birdfish.effects import Blink, Pulser, ColorShift
 from birdfish.lights import LightElement, RGBLight, PulseChase, LightShow
 from birdfish.output.solriserdmx import SolRiserDmx
 from birdfish import tween
+from solrgb import SolRgb
+from solshow import SolShow
+from soleffects import SolHueShift
+
+# 0.1 lighting is stable on both host and yun systems
+
+
+NUM_ADDRESSES = 93
+NUM_CHANNELS = 31
+
+channel_names = {
+    1: 'nose_front',
+    2: 'nose_mid',
+    3: 'nose_rear',
+    4: 'nose_sides_lower',
+    5: 'nose_sides_upper',
+    6: 'wings',
+    7: '',
+    8: '',
+    9: 'windshield',
+    10: 'beak_front',
+    11: 'beak_rear',
+    12: 'ray_mid_inner',
+    13: 'ray_midleft_inner',
+    14: 'ray_midright_inner',
+    15: 'ray_left_inner',
+    16: 'ray_right_inner',
+    17: 'ray_mid_outer',
+    18: 'ray_midleft_outer',
+    19: 'ray_midright_outer',
+    20: 'ray_left_outer',
+    21: 'ray_right_outer',
+    22: 'arc',
+    23: 'sides_front',
+    24: 'sides_mid',
+    25: 'sides_rear',
+    26: 'rails_front',
+    27: 'rails_mid',
+    28: 'rails_rear',
+    29: 'canopy_front',
+    30: 'canopy_rear',
+    31: 'stairs'
+}
 
 
 # create a light show - manages the updating of all lights
-show = LightShow()
+show = SolShow()
 
-# Create a network - in this case, universe 3
-dmx = SolRiserDmx('/dev/ttyATH0')
-#dmx = SolRiserDmx('/dev/tty.usbmodem1d21')
+# Create a network - in this case, the SolRiser DMX shield over serial
+#dmx = SolRiserDmx('/dev/ttyATH0')
+dmx = SolRiserDmx(config.SERIAL_PORT)
 
 # add the network to the show
 show.networks.append(dmx)
@@ -23,121 +68,52 @@ show.networks.append(dmx)
 dispatcher = OSCDispatcher(('0.0.0.0', 8998))
 
 
-## create a single channel light element
-#single = LightElement(
-#        start_channel=1,
-#        name="singletest",
-#        attack_duration=1,
-#        release_duration=1.5,
-#        )
-
-# add the light to a network
-#show.add_element(single, network=dmx)
-
 # the effect is configured by how many times it should pulse per second
 # 1 is the default
-pulser = Pulser()
+#pulser = Pulser()
+hueShift = SolHueShift()
+#hueShift.add_hue_shift()
+
+show.effects.append(hueShift)
 
 # if you wanted to give the pulse a different characteristic
 # pulser = Pulser(on_shape=tween.IN_CIRC, off_shape=tween.OUT_CIRC)
 
-# we append the effect to the elements own list of effects
-#single.effects.append(pulser)
-
-# set the input interface to trigger the element
-# midi code 41 is the "Q" key on the qwerty keyboard for the midikeys app
-#dispatcher.add_observer((0,41), single)
-#dispatcher.add_trigger('/1/push1', single)
-
-
-#single = RGBLight(
-#        start_channel=1,
-#        name="singletestb",
-##        attack_duration=0,
-##        decay_duration=0,
-##        release_duration=0,
-##        sustain_value=0,
-#        simple=True
-#        )
-#
-#single.hue = random.random()
-#single.saturation = 1
-##single.bell_mode = True
-#single.update_rgb()
-#
-#
-## add the light to a network
-#show.add_element(single, network=dmx)
-#
-## set the input interface to trigger the element
-## midi code 41 is the "Q" key on the qwerty keyboard for the midikeys app
-#dispatcher.add_trigger('/1/toggle1', single)
-#dispatcher.add_map('/1/fader2', single, 'hue')
-#dispatcher.add_map('/1/fader1', single, 'saturation')
-##dispatcher.add_map('/1/faderA', single, 'saturation', in_range=(0,4))
-#
-## set the input interface to trigger the element
-## midi code 41 is the "Q" key on the qwerty keyboard for the midikeys app
-## midi_dispatcher.add_observer((0,41), single)
-#dispatcher.add_trigger('/1/push1', single)
-
-
-
-#p = PulseChase(name="greenpulse",
-#        start_pos=1,
-#        end_pos=12,
-#        speed=3,
-#        move_tween=tween.IN_OUT_CUBIC,
-#        )
-#
-elementid = 0
-for i in range(1,3,3):
-    elementid += 1
-    l = RGBLight(
-            start_channel=i,
-            name="pulse_%s" % elementid,
-            attack_duration=0,
-            release_duration=0,
-            sustain_value=1,
+for i in range(1,NUM_CHANNELS + 1):
+    l = SolRgb(
+            start_channel=i * 3 - 2,
+            #name="pulse_%s" % elementid,
+            name=channel_names[i],
+            #attack_duration=0.5,
+            #release_duration=0,
+            #sustain_value=1,
             #simple=True
             )
     #l.hue = random.random() # * 255
-    l.hue = .74
+    #l.hue = .74
+    l.hue = (1.0 / NUM_CHANNELS) * (NUM_CHANNELS - (i - 1.0))
+    print i, l.name, l.hue
+    l.intensity = 1
     l.saturation = 1
-    l.update_rgb()
+    #l.update_rgb()
+    
     show.add_element(l, network=dmx)
-    #l.simple = True
+    hueShift.targets.append(l)
+
     # add the light to the network
     #dmx.add_element(l)
     #p.elements.append(l)
-    dispatcher.add_map('/1/fader2', l, 'hue')
-    l.effects.append(pulser)
+    
+    #dispatcher.add_map('/1/fader1', l, 'hue')
+    dispatcher.add_map('/1/fader2', l, 'intensity')
+    #l.effects.append(pulser)
 
     # set the input interface to trigger the element
     # midi code 41 is the "Q" key on the qwerty keyboard for the midikeys app
     #dispatcher.add_observer((0,41), single)
     dispatcher.add_trigger('/1/push1', l)
 
-#
-#
-#p.start_pos = 1
-## p.left_width = p.right_width = 10
-#p.left_width = 1
-#p.right_width = 1 
-#p.left_shape = p.right_shape = tween.OUT_CIRC
-#p.speed = 3
-#p.moveto = p.end_pos = 12
-##p.trigger_toggle = True
-#
-#show.add_element(p)
-#
-## set the input interface to trigger the element
-## midi code 70 is the "J" key on the qwerty keyboard for the midikeys app
-## dispatcher.add_observer((0,70),p)
-#dispatcher.add_map('/1/fader1', p, 'speed', in_range=(0,1), out_range=(.5, 10))
-#
-##dispatcher.add_trigger('/1/push1', p)
-#dispatcher.add_trigger('/1/toggle1', p)
+#dispatcher.add_trigger('/1/toggle1', hueShift)
 
 # startup the midi communication - runs in its own thread
 # dispatcher.start()
@@ -146,7 +122,7 @@ dispatcher.start()
 # start the show in a try block so that we can catch ^C and stop the midi
 # dispatcher thread
 try:
-    show.run_live()
+    show.run()
 except KeyboardInterrupt:
     # cleanup
     # dispatcher.stop()

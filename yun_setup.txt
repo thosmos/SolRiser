@@ -1,0 +1,11 @@
+SolRiser Yun Setup
+
+change network name to solriser
+password to firedrop
+timezone to America/LosAngeles
+change network to local WIFI
+
+ssh root@solriser.local
+
+echo 'export TERM="xterm"' >> ~/.profile
+source ~/.profile

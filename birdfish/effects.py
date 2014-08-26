@@ -128,6 +128,40 @@ class ColorShift(BaseEffect, ColorEnvelope):
                     target.saturation = self.saturation
                 if self.intensity is not None:
                     target.set_intensity(self.intensity)
+                    
+class SolShift(BaseEffect, ColorEnvelope):
+    # TODO notes:
+    # how does it handle the existing color of an element
+    # can I handle explicit start color, or take current color and shift both
+    # can we reset the color to the original?
+    #
+    def __init__(self, shift_amount=1, **kwargs):
+        super(SolShift, self).__init__(**kwargs)
+        ColorEnvelope.__init__(self, **kwargs)
+        self.hue = 0
+        self.saturation = 1
+        self.intensity = 1
+
+    def _on_trigger(self, intensity, **kwargs):
+        self.reset()
+
+    def update(self, show, targets=None):
+        if self.trigger_state:
+            targets = self.get_targets(targets)
+            # TODO need to make this anti duplicate calling logic
+            # more effects generic - maybe effects specific stuff goes
+            # in a render method
+            if self.last_update != show.timecode:
+                self.hue, self.saturation, self.intensity = self._color_update(
+                        show.time_delta)
+                self.last_update = show.timecode
+            for target in targets:
+                if self.hue is not None:
+                    target.hue = self.hue
+                if self.saturation is not None:
+                    target.saturation = self.saturation
+                if self.intensity is not None:
+                    target.set_intensity(self.intensity)
 
 
 class Twinkle(BaseEffect):

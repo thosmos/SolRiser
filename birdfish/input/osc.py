@@ -57,8 +57,8 @@ class OSCDispatcher(OSCServer):
 
     def dispatch(self, addr, tags, data, client_address):
         #print 'dispatch: ', self.observers
-        if not "accxyz" in addr:
-            print addr, data, client_address
+        #if not "accxyz" in addr:
+        print addr, data, client_address
         message_key = addr
         if message_key in self.observers:
             for destination in self.observers[message_key]:
