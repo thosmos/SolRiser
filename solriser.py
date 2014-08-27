@@ -91,29 +91,29 @@ for i in range(1,NUM_CHANNELS + 1):
             )
     #l.hue = random.random() # * 255
     #l.hue = .74
+    
     l.hue = (1.0 / NUM_CHANNELS) * (NUM_CHANNELS - (i - 1.0))
-    print i, l.name, l.hue
     l.intensity = 1
     l.saturation = 1
     #l.update_rgb()
     
     show.add_element(l, network=dmx)
-    hueShift.targets.append(l)
+    hueShift.add_element(l)
 
     # add the light to the network
     #dmx.add_element(l)
     #p.elements.append(l)
     
-    #dispatcher.add_map('/1/fader1', l, 'hue')
-    dispatcher.add_map('/1/fader2', l, 'intensity')
+    dispatcher.add_map('/global/intensity', l, 'intensity')
     #l.effects.append(pulser)
 
     # set the input interface to trigger the element
     # midi code 41 is the "Q" key on the qwerty keyboard for the midikeys app
     #dispatcher.add_observer((0,41), single)
-    dispatcher.add_trigger('/1/push1', l)
+    dispatcher.add_trigger('/global/active', l)
+    dispatcher.add_trigger('/global/active', l)
 
-#dispatcher.add_trigger('/1/toggle1', hueShift)
+dispatcher.add_map('/global/speed', hueShift, 'speed')
 
 # startup the midi communication - runs in its own thread
 # dispatcher.start()
