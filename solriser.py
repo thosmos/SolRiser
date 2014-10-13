@@ -72,9 +72,12 @@ dispatcher = OSCDispatcher(('0.0.0.0', 8998))
 # 1 is the default
 #pulser = Pulser()
 hueShift = SolHueShift()
+hueShift.width = 0.3
+#raySwiper = SolSwiper()
 #hueShift.add_hue_shift()
 
 show.effects.append(hueShift)
+#show.effects.append(raySwiper)
 
 # if you wanted to give the pulse a different characteristic
 # pulser = Pulser(on_shape=tween.IN_CIRC, off_shape=tween.OUT_CIRC)
@@ -91,29 +94,42 @@ for i in range(1,NUM_CHANNELS + 1):
             )
     #l.hue = random.random() # * 255
     #l.hue = .74
-    
+
     l.hue = (1.0 / NUM_CHANNELS) * (NUM_CHANNELS - (i - 1.0))
     l.intensity = 1
     l.saturation = 1
+
     #l.update_rgb()
-    
+
     show.add_element(l, network=dmx)
     hueShift.add_element(l)
 
     # add the light to the network
     #dmx.add_element(l)
     #p.elements.append(l)
-    
+
     dispatcher.add_map('/global/intensity', l, 'intensity')
+    dispatcher.add_map('/1/fader1', l, 'intensity')
+    dispatcher.add_map('/global/hue', l, 'hue')
     #l.effects.append(pulser)
 
     # set the input interface to trigger the element
     # midi code 41 is the "Q" key on the qwerty keyboard for the midikeys app
     #dispatcher.add_observer((0,41), single)
     dispatcher.add_trigger('/global/active', l)
-    dispatcher.add_trigger('/global/active', l)
+    dispatcher.add_trigger('/1/push1', l)
+    #dispatcher.add_trigger('/global/active', l)
+
+#    if i in range(12,21):
+#        raySwiper.add_element(l)
 
 dispatcher.add_map('/global/speed', hueShift, 'speed')
+dispatcher.add_map('/1/fader2', hueShift, 'speed')
+
+
+inners = [15, 13, 12, 14, 16]
+outers = [20, 18, 17, 19, 21]
+
 
 # startup the midi communication - runs in its own thread
 # dispatcher.start()

@@ -72,7 +72,7 @@ class SolLightElement(object):
         self.trigger_state = 0
         #self.adsr_envelope.trigger(state=0)
         # note can not set trigger_intensity to 0 here
-    
+
     def trigger(self, intensity, **kwargs):
         self.set_intensity(intensity)
         return
@@ -80,8 +80,8 @@ class SolLightElement(object):
     def off(self):
         """convenience for off, synonym for trigger(0)"""
         self.trigger(0)
-        
-        
+
+
 class SolEffect(SolLightElement):
     def __init__(self, *args, **kwargs):
         super(SolEffect, self).__init__(*args, **kwargs)
@@ -112,7 +112,7 @@ class SolEffect(SolLightElement):
     def add_element(self, element):
         self.targets.append(element)
         self.reset()
-    
+
     def reset(self):
         return
 
@@ -234,37 +234,57 @@ class ColorShift(SolEffect, ColorEnvelope):
                     target.set_intensity(self.intensity)
 
 class SolHueShift(SolEffect):
-    # TODO notes:
-    # how does it handle the existing color of an element
-    # can I handle explicit start color, or take current color and shift both
-    # can we reset the color to the original?
+    #
+    def __init__(self, duration = 5, speed = 0.25, width = 1.0, targets = [], **kwargs):
+        super(SolHueShift, self).__init__(**kwargs)
+        self.targets = targets
+        self.duration = duration
+        self.speed = speed
+        self.width = width
+
+    def update(self, show):
+        targets = self.targets
+        shift = (show.frame_delay / self.duration) ** (4 * self.speed)
+
+        for target in targets:
+            target.hue += shift
+            if target.hue > 1.0:
+                target.hue = 0.0
+
+    def reset(self):
+        print "SolHueShift.reset()"
+        count = len(self.targets)
+        for i in range(0,count):
+            self.targets[i].hue = (1.0 * width / count) * (count - i)
+
+    def set_width(self, width):
+        self.width = width
+
+    def get_width(self, width):
+        return self.width
+
+    width = property(get_width, set_width)
+
+class SolSwiper(SolEffect):
     #
     def __init__(self, duration = 5, speed = 0.25, targets = [], **kwargs):
-        super(SolHueShift, self).__init__(**kwargs)
+        super(SolSwiper, self).__init__(**kwargs)
         self.targets = targets
         self.duration = duration
         self.speed = speed
 
     def update(self, show):
-#        if self.trigger_state:
-        #targets = self.get_targets(targets)
         targets = self.targets
-        shift = (show.frame_delay / self.duration) * 4 * self.speed
-        # TODO need to make this anti duplicate calling logic
-        # more effects generic - maybe effects specific stuff goes
-        # in a render method
-#            if self.last_update != show.timecode:
-#                self.hue, self.saturation, self.intensity = self.colorEnvelope._color_update(
-#                        show.time_delta)
-#                self.last_update = show.timecode
+        shift = (show.frame_delay / self.duration) ** (4 * self.speed)
+
         for target in targets:
-            target.hue += shift 
+            target.hue += shift
             if target.hue > 1.0:
                 target.hue = 0.0
-    
+
     def reset(self):
         print "SolHueShift.reset()"
         count = len(self.targets)
         for i in range(0,count):
             self.targets[i].hue = (1.0 / count) * (count - i)
-        
+
